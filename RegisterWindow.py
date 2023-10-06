@@ -1,5 +1,7 @@
 import tkinter as tk
 
+import mysql.connector
+
 class RegisterWindow(tk.Frame):
     def __init__(self, root, parent, *args, **kwargs):
         tk.Frame.__init__(self, parent, *args, **kwargs)
