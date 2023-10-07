@@ -1,6 +1,17 @@
 import tkinter as tk
 from tkinter import messagebox
-import sqlite3
+
+import mysql.connector
+import configparser
+
+# Read MySQL config file
+config = configparser.ConfigParser()
+config.read('config.ini')
+
+db_host = config['mysql']['host']
+db_user = config['mysql']['user']
+db_password = config['mysql']['password']
+db_name = config['mysql']['database']
 
 class RegisterWindow(tk.Frame):
     def __init__(self, root, parent, *args, **kwargs):
@@ -35,7 +46,7 @@ class RegisterWindow(tk.Frame):
         tk.Button(self.parent,
                   text="Register",
                   width=25,
-                  command=self.RegisterAccount(lambda: username.get(), password.get()),
+                  command= lambda: self.RegisterAccount(username.get(), password.get()),
                   ).grid(row = 4, column=0, pady=2)
         #back button
         tk.Button(self.parent,
@@ -48,23 +59,34 @@ class RegisterWindow(tk.Frame):
         if username == "" or pw == "":
             messagebox.showwarning("Failed to register!", "You need to fill out the fields to register.")
         else:
-            registered_accounts_db = sqlite3.connect('registered_accounts.db')
-            db_cursor = registered_accounts_db.cursor()
+            try:
+                connection = mysql.connector.connect(
+                    host=db_host,
+                    user=db_user,
+                    password=db_password,
+                    database=db_name
+                )
+                cursor = connection.cursor()
 
-            db_cursor.execute("""SELECT username FROM registered WHERE username=?""",(username))
+                check_entries = "SELECT * FROM registered WHERE username = %s"
+                username_to_check = (username,)
+                cursor.execute(check_entries, username_to_check)
+                result = cursor.fetchone()
 
-            result = db_cursor.fetchone()
-            if result:
-                messagebox.showwarning("Failed to register!", "The username you entered is already taken.")
-            else:
-                db_cursor.execute("INSERT INTO registered VALUES (:username, :pw,)",
-                                {
-                                    'username': username,
-                                    'password': pw
-                                })
-                registered_accounts_db.commit()
-                registered_accounts_db.close()
-        
+                if result:
+                    messagebox.showerror("Failed to register!", "The username you entered is already taken.")
+                else:
+                    insert_account = "INSERT INTO registered (username, pw) VALUES (%s, %s)"
+                    account_info = (username, pw)
+                    cursor.execute(insert_account, account_info)
+                    connection.commit()
+                    messagebox.showinfo("'Successfully registered'!", "You have registered a new account!")
+            except mysql.connector.Error as err:
+                print(f"Error: {err}")
+            finally:
+                if connection:
+                    connection.close()
+
     def OpenMainMenu(self):
         self.root.deiconify()
         self.parent.destroy()
